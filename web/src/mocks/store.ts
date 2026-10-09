@@ -1,5 +1,5 @@
 import { CAMERA_MARKER, SPRINKLER_ZONES } from '../config/field'
-import type { StatusResponse, SystemEvent, SystemMode } from '../api/types'
+import type { BirdOnField, StatusResponse, SystemEvent, SystemMode } from '../api/types'
 
 const startTime = Date.now()
 
@@ -16,6 +16,7 @@ let events: SystemEvent[] = [
 ]
 
 let lastDetection: StatusResponse['lastDetection'] = null
+let birdOnField: BirdOnField = null
 
 const sprinklerState = SPRINKLER_ZONES.map((z) => ({
   id: z.id,
@@ -27,7 +28,15 @@ const sprinklerState = SPRINKLER_ZONES.map((z) => ({
 }))
 
 let sprayTimeout: ReturnType<typeof setTimeout> | null = null
+let detectDelayTimeout: ReturnType<typeof setTimeout> | null = null
+let clearBirdTimeout: ReturnType<typeof setTimeout> | null = null
 let simulationInterval: ReturnType<typeof setInterval> | null = null
+let cycleBusy = false
+
+/** Burung di lahan → tunggu ini → baru deteksi + semprot */
+export const BIRD_TO_DETECT_MS = 2_000
+/** Durasi semprot otomatis */
+export const AUTO_SPRAY_SEC = 6
 
 function pushEvent(event: Omit<SystemEvent, 'id' | 'at'> & { at?: string }) {
   const entry: SystemEvent = {
@@ -70,7 +79,15 @@ function runSpray(zoneIds: string[], durationSec: number, manual: boolean) {
     zoneId: zoneIds[0],
     manual,
   })
-  sprayTimeout = setTimeout(() => clearSpray(), durationSec * 1000)
+  sprayTimeout = setTimeout(() => {
+    clearSpray()
+    // Burung kabur sebentar setelah semprot selesai
+    if (clearBirdTimeout) clearTimeout(clearBirdTimeout)
+    clearBirdTimeout = setTimeout(() => {
+      birdOnField = null
+      cycleBusy = false
+    }, 1500)
+  }, durationSec * 1000)
 }
 
 export function getMockStatus(): StatusResponse {
@@ -80,10 +97,11 @@ export function getMockStatus(): StatusResponse {
     connected: true,
     pumpOn,
     detectionsToday,
+    birdOnField: birdOnField ? { ...birdOnField } : null,
     lastDetection,
     sprinklers: sprinklerState.map((s) => ({ ...s })),
     sensors: {
-      motion: lastDetection?.birdDetected ?? false,
+      motion: birdOnField != null,
       cameraOnline: true,
     },
   }
@@ -117,9 +135,7 @@ export function triggerMockSpray(body: {
 }) {
   const duration = body.durationSec ?? 3
   const manual = body.manual ?? true
-  const ids = body.zoneId
-    ? [body.zoneId]
-    : sprinklerState.map((s) => s.id)
+  const ids = body.zoneId ? [body.zoneId] : sprinklerState.map((s) => s.id)
   runSpray(ids, duration, manual)
   return getMockStatus()
 }
@@ -136,43 +152,68 @@ function pickRandomZone() {
   return z.id
 }
 
-/** Durasi burung + semprot otomatis (selaras di UI) */
-export const AUTO_SPRAY_SEC = 6
+/**
+ * 1) Burung muncul di lahan (visual)
+ * 2) Setelah 2 detik → terdeteksi + semprot (mode auto)
+ */
+function spawnBirdCycle() {
+  if (cycleBusy || pumpOn || birdOnField) return
+  cycleBusy = true
 
-function simulateDetection() {
-  // Jangan ganggu semprotan yang sedang jalan
-  if (pumpOn) return
-  // Selalu deteksi burung saat interval (demo lebih jelas)
   const zoneId = pickRandomZone()
-  detectionsToday += 1
-  lastDetection = {
+  birdOnField = {
     at: new Date().toISOString(),
-    confidence: 0.72 + Math.random() * 0.25,
     zoneId,
-    birdDetected: true,
   }
-  const label = SPRINKLER_ZONES.find((z) => z.id === zoneId)?.label ?? zoneId
-  pushEvent({
-    type: 'detection',
-    message: `Burung terdeteksi dekat ${label} (mock)`,
-    zoneId,
-  })
-  // Mode auto: langsung semprot bersamaan dengan munculnya burung
-  if (mode === 'auto') {
-    runSpray([zoneId], AUTO_SPRAY_SEC, false)
-  }
+
+  if (detectDelayTimeout) clearTimeout(detectDelayTimeout)
+  detectDelayTimeout = setTimeout(() => {
+    // Pastikan burung masih di lahan
+    if (!birdOnField) {
+      cycleBusy = false
+      return
+    }
+
+    detectionsToday += 1
+    lastDetection = {
+      at: new Date().toISOString(),
+      confidence: 0.72 + Math.random() * 0.25,
+      zoneId: birdOnField.zoneId,
+      birdDetected: true,
+    }
+    const label =
+      SPRINKLER_ZONES.find((z) => z.id === birdOnField?.zoneId)?.label ?? birdOnField.zoneId
+    pushEvent({
+      type: 'detection',
+      message: `Burung terdeteksi dekat ${label} (mock)`,
+      zoneId: birdOnField.zoneId ?? undefined,
+    })
+
+    // Auto: selalu semprot setelah terdeteksi (meski sebelumnya belum semprot)
+    if (mode === 'auto') {
+      runSpray([zoneId], AUTO_SPRAY_SEC, false)
+    } else {
+      // Manual: burung tetap sebentar lalu hilang
+      if (clearBirdTimeout) clearTimeout(clearBirdTimeout)
+      clearBirdTimeout = setTimeout(() => {
+        birdOnField = null
+        cycleBusy = false
+      }, 5000)
+    }
+  }, BIRD_TO_DETECT_MS)
 }
 
 export function startMockSimulation() {
   if (simulationInterval) return
-  // Deteksi pertama cepat supaya demo langsung kelihatan
-  setTimeout(simulateDetection, 2500)
-  simulationInterval = setInterval(simulateDetection, 10000)
+  setTimeout(spawnBirdCycle, 2000)
+  simulationInterval = setInterval(spawnBirdCycle, 12000)
 }
 
 export function stopMockSimulation() {
   if (simulationInterval) clearInterval(simulationInterval)
   simulationInterval = null
+  if (detectDelayTimeout) clearTimeout(detectDelayTimeout)
+  if (clearBirdTimeout) clearTimeout(clearBirdTimeout)
 }
 
 export const mockFieldMeta = { CAMERA_MARKER, SPRINKLER_ZONES }

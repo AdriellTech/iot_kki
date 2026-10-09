@@ -15,14 +15,13 @@ type Props = {
   onSelectZone: (id: string | null) => void
 }
 
-/** Selaras dengan AUTO_SPRAY_SEC di mock (~6s) + sedikit sisa kabur */
-const BIRD_VISIBLE_MS = 8_000
+/** Burung di lahan: dari birdOnField; chip "terdeteksi" dari lastDetection */
+const BIRD_VISIBLE_MS = 12_000
 
 export default function FieldViewport({ view, selectedZoneId, onSelectZone }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
 
-  // Pause hanya jika di luar layar — jangan pause saat scroll (bikin hitch)
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -37,26 +36,38 @@ export default function FieldViewport({ view, selectedZoneId, onSelectZone }: Pr
   const { data } = useQuery({
     queryKey: ['status'],
     queryFn: () => api.getStatus(),
-    refetchInterval: 1000,
-    staleTime: 500,
+    refetchInterval: 500,
+    staleTime: 200,
   })
 
-  const highlightZoneId = data?.lastDetection?.zoneId ?? null
+  const highlightZoneId = data?.lastDetection?.zoneId ?? data?.birdOnField?.zoneId ?? null
   const sprinklers = data?.sprinklers ?? []
   const pumpOn = data?.pumpOn ?? false
 
-  const { birdActive, birdZoneId } = useMemo(() => {
+  const { birdActive, birdZoneId, birdDetected } = useMemo(() => {
+    const presence = data?.birdOnField
     const det = data?.lastDetection
-    if (!det?.birdDetected || !det.at) {
-      return { birdActive: false, birdZoneId: null as string | null }
+
+    if (presence?.at) {
+      const age = Date.now() - new Date(presence.at).getTime()
+      if (age >= 0 && age < BIRD_VISIBLE_MS) {
+        return {
+          birdActive: true,
+          birdZoneId: presence.zoneId,
+          birdDetected: Boolean(det?.birdDetected && det.at && Date.now() - new Date(det.at).getTime() < BIRD_VISIBLE_MS),
+        }
+      }
     }
-    const age = Date.now() - new Date(det.at).getTime()
-    const recent = age >= 0 && age < BIRD_VISIBLE_MS
-    return {
-      birdActive: recent,
-      birdZoneId: det.zoneId,
+
+    if (det?.birdDetected && det.at) {
+      const age = Date.now() - new Date(det.at).getTime()
+      if (age >= 0 && age < BIRD_VISIBLE_MS) {
+        return { birdActive: true, birdZoneId: det.zoneId, birdDetected: true }
+      }
     }
-  }, [data?.lastDetection])
+
+    return { birdActive: false, birdZoneId: null as string | null, birdDetected: false }
+  }, [data?.birdOnField, data?.lastDetection])
 
   const animating = birdActive || pumpOn || sprinklers.some((s) => s.active)
   const frameloop = !inView ? 'never' : animating ? 'always' : 'demand'
@@ -96,7 +107,17 @@ export default function FieldViewport({ view, selectedZoneId, onSelectZone }: Pr
         <span className="clay-chip !py-1 !text-[0.65rem]">
           {REAL_PLANT_COUNT} tanaman · 1:{PLANT_SCALE_RATIO}
         </span>
-        {birdActive ? (
+        {birdActive && !birdDetected ? (
+          <span
+            className="clay-chip !border-transparent !py-1 !text-[0.65rem] !text-clay-text"
+            style={{
+              background: 'linear-gradient(180deg, #e8eef0 0%, #d5dde0 100%)',
+            }}
+          >
+            Burung di lahan…
+          </span>
+        ) : null}
+        {birdDetected ? (
           <span
             className="clay-chip !border-transparent !py-1 !text-[0.65rem] !text-clay-text"
             style={{

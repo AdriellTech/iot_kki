@@ -16,12 +16,20 @@ export type LastDetection = {
   birdDetected: boolean
 } | null
 
+/** Burung terlihat di lahan (belum tentu sudah "terdeteksi") */
+export type BirdOnField = {
+  at: string
+  zoneId: string | null
+} | null
+
 export type StatusResponse = {
   version: string
   mode: SystemMode
   connected: boolean
   pumpOn: boolean
   detectionsToday: number
+  /** Burung sudah di lahan (visual); deteksi resmi = lastDetection. Opsional di firmware. */
+  birdOnField?: BirdOnField
   lastDetection: LastDetection
   sprinklers: SprinklerStatus[]
   sensors: {
