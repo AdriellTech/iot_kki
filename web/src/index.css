@@ -1,0 +1,202 @@
+@import 'tailwindcss';
+
+/*
+  Claymorphism tokens — soft inflated surfaces:
+  outer drop shadow + dual inset (highlight TL / shade BR)
+  Palette: mint / sky / cream (agri HydroSky), bukan ungu referensi generik.
+*/
+@theme {
+  --color-clay-bg: #e4efe8;
+  --color-clay-bg-2: #d5e8f0;
+  --color-clay-surface: #f7fbf8;
+  --color-clay-surface-2: #eef6f1;
+  --color-clay-accent: #5ecf8a;
+  --color-clay-accent-dark: #3dae6c;
+  --color-clay-sky: #7ec8e8;
+  --color-clay-warn: #f6c96a;
+  --color-clay-danger: #f08a8a;
+  --color-clay-text: #24382c;
+  --color-clay-muted: #6a8576;
+
+  /* Extruded / floating pill */
+  --shadow-clay:
+    10px 12px 24px rgba(120, 145, 130, 0.28),
+    -6px -6px 18px rgba(255, 255, 255, 0.95),
+    inset 4px 4px 10px rgba(255, 255, 255, 0.85),
+    inset -5px -6px 12px rgba(140, 165, 150, 0.28);
+
+  /* Colored primary button (mint cushion) */
+  --shadow-clay-accent:
+    8px 10px 20px rgba(62, 150, 100, 0.35),
+    -4px -4px 12px rgba(255, 255, 255, 0.55),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.45),
+    inset -4px -5px 10px rgba(40, 120, 75, 0.28);
+
+  /* Danger cushion */
+  --shadow-clay-danger:
+    8px 10px 20px rgba(180, 90, 90, 0.3),
+    -4px -4px 12px rgba(255, 255, 255, 0.5),
+    inset 3px 3px 8px rgba(255, 255, 255, 0.4),
+    inset -4px -5px 10px rgba(150, 60, 60, 0.25);
+
+  /* Recessed well (inputs, tracks, trays) */
+  --shadow-clay-inset:
+    inset 6px 6px 14px rgba(130, 155, 140, 0.32),
+    inset -5px -5px 12px rgba(255, 255, 255, 0.9);
+
+  /* Pressed state */
+  --shadow-clay-pressed:
+    inset 7px 7px 14px rgba(120, 145, 130, 0.4),
+    inset -3px -3px 8px rgba(255, 255, 255, 0.55);
+
+  /* Soft floating badge */
+  --shadow-clay-float:
+    6px 8px 18px rgba(120, 145, 130, 0.22),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.8);
+}
+
+@layer base {
+  /* Mobile: boleh scroll. Desktop (lg+): kunci ke viewport. */
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  @media (max-width: 1023px) {
+    html,
+    body,
+    #root {
+      height: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    html,
+    body,
+    #root {
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
+    }
+  }
+
+  body {
+    @apply text-clay-text antialiased;
+    font-family:
+      'Nunito',
+      'Segoe UI',
+      system-ui,
+      -apple-system,
+      sans-serif;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 0%, rgba(126, 200, 232, 0.35), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 10%, rgba(94, 207, 138, 0.28), transparent 50%),
+      radial-gradient(ellipse 60% 40% at 50% 100%, rgba(246, 201, 106, 0.18), transparent 45%),
+      linear-gradient(165deg, #e8f4ec 0%, #dfeef5 45%, #e4efe8 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(94, 207, 138, 0.35);
+  }
+}
+
+@layer components {
+  .clay-surface {
+    @apply rounded-[2rem] border border-white/70 bg-clay-surface;
+    box-shadow: var(--shadow-clay);
+  }
+
+  .clay-surface-lg {
+    @apply rounded-[2.25rem] border border-white/80 bg-clay-surface;
+    box-shadow: var(--shadow-clay);
+  }
+
+  .clay-inset {
+    @apply rounded-[1.5rem] border border-white/50 bg-clay-surface-2;
+    box-shadow: var(--shadow-clay-inset);
+  }
+
+  .clay-pill {
+    @apply rounded-full border border-white/60;
+    box-shadow: var(--shadow-clay);
+  }
+
+  .clay-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/55
+      px-5 py-3 text-sm font-bold tracking-wide transition-all duration-150
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay-accent/50
+      focus-visible:ring-offset-2 focus-visible:ring-offset-clay-bg
+      active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: var(--shadow-clay);
+  }
+
+  .clay-btn:active:not(:disabled) {
+    box-shadow: var(--shadow-clay-pressed);
+  }
+
+  .clay-btn-primary {
+    @apply border-white/40 text-white;
+    background: linear-gradient(180deg, #7ada9e 0%, #5ecf8a 45%, #4ab876 100%);
+    box-shadow: var(--shadow-clay-accent);
+  }
+
+  .clay-btn-primary:active:not(:disabled) {
+    box-shadow: var(--shadow-clay-pressed);
+  }
+
+  .clay-btn-danger {
+    @apply border-white/40 text-white;
+    background: linear-gradient(180deg, #f5a0a0 0%, #f08a8a 50%, #e07070 100%);
+    box-shadow: var(--shadow-clay-danger);
+  }
+
+  .clay-btn-secondary {
+    @apply bg-clay-surface text-clay-text;
+  }
+
+  .clay-btn-ghost {
+    @apply border-transparent bg-transparent text-clay-muted shadow-none;
+    box-shadow: none;
+  }
+
+  .clay-btn-ghost:active:not(:disabled) {
+    box-shadow: none;
+  }
+
+  .clay-chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/60
+      bg-clay-surface px-3.5 py-2 text-sm font-semibold;
+    box-shadow: var(--shadow-clay-float);
+  }
+
+  .clay-dot {
+    @apply h-3 w-3 shrink-0 rounded-full;
+    box-shadow:
+      2px 2px 4px rgba(100, 120, 110, 0.25),
+      inset 1px 1px 2px rgba(255, 255, 255, 0.7);
+  }
+
+  .clay-nav-pill {
+    @apply rounded-full border border-white/50 bg-clay-surface p-1.5;
+    box-shadow: var(--shadow-clay);
+  }
+
+  .clay-nav-item {
+    @apply rounded-full px-4 py-2.5 text-sm font-bold transition-all duration-150;
+  }
+
+  .clay-nav-item-active {
+    @apply text-white;
+    background: linear-gradient(180deg, #7ada9e 0%, #5ecf8a 100%);
+    box-shadow: var(--shadow-clay-accent);
+  }
+
+  .clay-nav-item-idle {
+    @apply text-clay-muted;
+  }
+}
