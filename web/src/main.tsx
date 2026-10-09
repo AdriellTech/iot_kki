@@ -15,9 +15,10 @@ const queryClient = new QueryClient({
 })
 
 async function bootstrap() {
+  // Demo mock: start simulasi burung+semprot langsung (tanpa MSW/SW — aman di Vercel)
   if (isMockMode()) {
-    const { enableMocking } = await import('./mocks/browser')
-    await enableMocking()
+    const { startMockSimulation } = await import('./mocks/store')
+    startMockSimulation()
   }
 
   createRoot(document.getElementById('root')!).render(
